@@ -37,11 +37,6 @@ const APP_DEFS = [
 // All apps — used in taskbar and Start Menu pinned grid
 const ALL_APP_DEFS = APP_DEFS;
 
-// Mobile home screen — strip desktop-only and contact apps
-const MOBILE_APP_DEFS = APP_DEFS.filter(a =>
-  !["paint", "browser", "explorer", "contact"].includes(a.id)
-);
-
 // Apps shown as desktop icons (left column on desktop)
 const DESKTOP_APPS = APP_DEFS.filter(a =>
   ["about", "projects", "skills", "contact", "settings", "discord", "github"].includes(a.id)
@@ -59,9 +54,12 @@ function OSPortfolio() {
   const [startOpen, setStartOpen] = useState(false);
   const [startClosing, setStartClosing] = useState(false);
   const closeStart = () => {
+    if (!startOpen) return;
     setStartClosing(true);
-    setTimeout(() => { setStartOpen(false); setStartClosing(false); }, 180);
+    setTimeout(() => { setStartOpen(false); setStartClosing(false); setStartSearch(""); setStartView("pinned"); }, 180);
   };
+  const [startSearch, setStartSearch] = useState("");
+  const [startView, setStartView] = useState("pinned");
   const [activeApp, setActiveApp] = useState(null);
   const [mobileRecent, setMobileRecent] = useState([]);
   const [showRecent, setShowRecent] = useState(false);
@@ -69,6 +67,7 @@ function OSPortfolio() {
   const [showControlCenter, setShowControlCenter] = useState(false);
   const [closingApp, setClosingApp] = useState(false);
   const closingAppDefRef = useRef(null);  // persists app def during close animation
+  const taskbarRefs = useRef({});
 
   // ── Boot + intro sequence: booting → fading → intro → intro-out → done
   const [bootPhase, setBootPhase] = useState("booting");
@@ -128,7 +127,9 @@ function OSPortfolio() {
   }, [windows, zCounter, isMobile, forceDesktop]);
 
   const closeWin = (id) => setWindows(ws => ws.filter(w => w.id !== id));
-  const minimizeWin = (id) => setWindows(ws => ws.map(w => w.id === id ? { ...w, minimized: true } : w));
+  const minimizeWin = (id, targetRect) => setWindows(ws => ws.map(w =>
+    w.id === id ? { ...w, minimized: true, minimizeTarget: targetRect || null } : w
+  ));
   const maximizeWin = (id) => setWindows(ws => ws.map(w => w.id === id ? { ...w, maximized: !w.maximized } : w));
   const focusWin = (id) => {
     setZCounter(z => z + 1);
@@ -302,7 +303,7 @@ function OSPortfolio() {
 
           {/* App grid */}
           <div className="grid grid-cols-4 gap-4 px-6 mt-6">
-            {MOBILE_APP_DEFS.filter(app => app.desc.toLowerCase().includes(mobileSearch.toLowerCase())).map(app => (
+            {APP_DEFS.filter(app => app.desc.toLowerCase().includes(mobileSearch.toLowerCase())).map(app => (
               <button key={app.id} onClick={() => { openApp(app); setMobileSearch(""); }}
                 className="flex flex-col items-center gap-1.5 group">
                 <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center text-2xl shadow-lg ${darkMode ? "border-white/10" : "border-black/10"}`}
@@ -319,7 +320,7 @@ function OSPortfolio() {
                 </span>
               </button>
             ))}
-            {MOBILE_APP_DEFS.filter(a => a.desc.toLowerCase().includes(mobileSearch.toLowerCase())).length === 0 && (
+            {APP_DEFS.filter(a => a.desc.toLowerCase().includes(mobileSearch.toLowerCase())).length === 0 && (
               <div className={`col-span-4 text-center text-xs py-8 ${darkMode ? "text-white/30" : "text-gray-400"}`}>No apps found</div>
             )}
           </div>
@@ -327,7 +328,7 @@ function OSPortfolio() {
           {/* Dock */}
           <div className={`mx-6 mt-auto mb-2 rounded-3xl border flex justify-around py-3 px-2 ${darkMode ? "border-white/10" : "border-black/10"}`}
             style={{background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)", backdropFilter:"blur(32px)"}}>
-            {MOBILE_APP_DEFS.slice(0, 4).map(app => (
+            {APP_DEFS.slice(0, 4).map(app => (
               <button key={app.id} onClick={() => openApp(app)}
                 className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl ${darkMode ? "border-white/10" : "border-black/10"}`}
                 style={{
@@ -563,7 +564,12 @@ function OSPortfolio() {
           <AppWindow key={win.id} win={win} zIndex={win.z}
             winContentBg={winContentBg}
             onClose={() => closeWin(win.id)}
-            onMinimize={() => minimizeWin(win.id)}
+            onMinimize={(e) => {
+              e && e.stopPropagation && e.stopPropagation();
+              const btn = taskbarRefs.current[win.appId];
+              const r = btn ? btn.getBoundingClientRect() : null;
+              minimizeWin(win.id, r ? { x: r.left + r.width/2, y: r.top + r.height/2 } : null);
+            }}
             onMaximize={() => maximizeWin(win.id)}
             onFocus={() => focusWin(win.id)}>
             {renderDesktopApp(win.appId)}
@@ -608,8 +614,20 @@ function OSPortfolio() {
             const win = windows.find(w => w.appId === app.id);
             const isOpen = !!win;
             const isActive = isOpen && !win?.minimized;
+            const handleTaskbarClick = (e) => {
+              e.stopPropagation();
+              if (!isOpen) { openDesktopApp(app); return; }
+              if (win.minimized) {
+                setWindows(ws => ws.map(w => w.appId === app.id ? { ...w, minimized: false, z: zCounter + 1 } : w));
+                setZCounter(z => z + 1);
+              } else {
+                const btn = taskbarRefs.current[app.id];
+                const r = btn ? btn.getBoundingClientRect() : null;
+                minimizeWin(win.id, r ? { x: r.left + r.width/2, y: r.top + r.height/2 } : null);
+              }
+            };
             return (
-              <button key={app.id} onClick={() => openDesktopApp(app)} title={app.title}
+              <button key={app.id} ref={el => taskbarRefs.current[app.id] = el} onClick={handleTaskbarClick} title={app.title}
                 className={`relative w-10 h-10 flex items-center justify-center rounded-lg transition-all hover:bg-blue-500/15 ${isActive ? "bg-blue-500/25" : ""}`}>
                 {app.imgIcon === "discord"
                   ? <img src={DISCORD_ICON} alt="" className="w-5 h-5" />
@@ -631,81 +649,134 @@ function OSPortfolio() {
         </div>
       </div>
 
-      {/* Start Menu — Windows 11 style */}
+      {/* Start Menu */}
       {(startOpen || startClosing) && (
         <div
-          className={`absolute bottom-12 left-1/2 z-[9998] rounded-2xl overflow-hidden shadow-2xl ${startClosing ? "start-close" : "start-open"}`}
+          className={`absolute bottom-12 left-1/2 z-[9998] rounded-2xl shadow-2xl flex flex-col ${startClosing ? "start-close" : "start-open"}`}
           style={{
-            width: 580, maxWidth: "95vw",
+            width: 580, maxWidth: "95vw", maxHeight: "70vh",
             background: darkMode ? "rgba(28,28,38,0.97)" : "rgba(243,243,252,0.97)",
             backdropFilter: "blur(48px)",
             border: darkMode ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
+            overflow: "hidden",
           }}
           onClick={e => e.stopPropagation()}>
 
-          {/* Search bar */}
-          <div className="px-7 pt-6 pb-4">
+          {/* Search */}
+          <div className="px-7 pt-6 pb-4 flex-shrink-0">
             <div className={`flex items-center gap-3 px-4 py-2.5 rounded-full border ${darkMode ? "bg-white/8 border-white/15" : "bg-white border-gray-200 shadow-sm"}`}>
               <span className={`text-sm ${darkMode ? "text-white/40" : "text-gray-400"}`}>🔍</span>
-              <input placeholder="Search for apps, settings, and documents"
+              <input autoFocus value={startSearch}
+                onChange={e => { setStartSearch(e.target.value); setStartView("pinned"); }}
+                placeholder="Search for apps..."
                 className={`flex-1 bg-transparent text-sm outline-none ${darkMode ? "text-white placeholder-white/30" : "text-gray-700 placeholder-gray-400"}`} />
+              {startSearch.length > 0 && (
+                <button onClick={() => setStartSearch("")} className={`text-xs px-1 ${darkMode ? "text-white/30 hover:text-white/60" : "text-gray-300 hover:text-gray-500"}`}>✕</button>
+              )}
             </div>
           </div>
 
-          {/* Pinned */}
-          <div className="px-7 pb-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className={`text-sm font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Pinned</span>
-              <button className={`text-xs px-3 py-1 rounded-lg flex items-center gap-1 ${darkMode ? "bg-white/8 text-white/60 hover:bg-white/12" : "bg-black/5 text-gray-500 hover:bg-black/8"}`}>
-                All <span className="text-[10px]">›</span>
-              </button>
-            </div>
-            <div className="grid grid-cols-6 gap-1">
-              {ALL_APP_DEFS.map(app => (
-                <button key={app.id} onClick={(e) => { e.stopPropagation(); openDesktopApp(app); }}
-                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all hover:bg-blue-500/15 active:scale-95`}>
-                  {app.imgIcon === "discord"
-                    ? <img src={DISCORD_ICON} alt="" className="w-7 h-7" />
-                    : app.imgIcon === "github"
-                    ? <img src={GITHUB_ICON}  alt="" className="w-7 h-7" style={{filter: darkMode ? "invert(1) brightness(1.2)" : "none"}} />
-                    : <span className="text-2xl">{app.emoji}</span>}
-                  <span className={`text-[10px] text-center leading-tight w-full truncate ${darkMode ? "text-white/80" : "text-gray-700"}`}>{app.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto min-h-0">
 
-          {/* Recommended */}
-          <div className={`px-7 py-4 border-t ${darkMode ? "border-white/8" : "border-black/5"}`}>
-            <div className="flex items-center justify-between mb-3">
-              <span className={`text-sm font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Recommended</span>
-              <button className={`text-xs px-3 py-1 rounded-lg flex items-center gap-1 ${darkMode ? "bg-white/8 text-white/60 hover:bg-white/12" : "bg-black/5 text-gray-500 hover:bg-black/8"}`}>
-                More <span className="text-[10px]">›</span>
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-1">
-              {[
-                { icon: "📄", name: "os-portfolio.jsx", sub: "3h ago" },
-                { icon: "📁", name: "Outcraft Config", sub: "Recently modified" },
-                { icon: "🧟", name: "Zombpocalypse Plugin", sub: "Yesterday" },
-                { icon: "🔫", name: "DeadLands SMP", sub: "In development" },
-              ].map(r => (
-                <button key={r.name} onClick={(e) => e.stopPropagation()}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all hover:bg-blue-500/10`}>
-                  <span className="text-xl flex-shrink-0">{r.icon}</span>
-                  <div className="min-w-0">
-                    <div className={`text-xs font-medium truncate ${darkMode ? "text-white" : "text-gray-800"}`}>{r.name}</div>
-                    <div className={`text-[10px] ${darkMode ? "text-white/40" : "text-gray-400"}`}>{r.sub}</div>
+            {/* Search results */}
+            {startSearch.trim().length > 0 && (
+              <div className="px-7 pb-4">
+                <div className={`text-[10px] uppercase tracking-widest mb-3 ${darkMode ? "text-white/30" : "text-gray-400"}`}>
+                  {ALL_APP_DEFS.filter(a => a.title.toLowerCase().includes(startSearch.trim().toLowerCase())).length} results
+                </div>
+                {ALL_APP_DEFS.filter(a => a.title.toLowerCase().includes(startSearch.trim().toLowerCase())).length === 0
+                  ? <div className={`text-center py-10 text-sm ${darkMode ? "text-white/25" : "text-gray-300"}`}>No apps match &ldquo;{startSearch}&rdquo;</div>
+                  : ALL_APP_DEFS.filter(a => a.title.toLowerCase().includes(startSearch.trim().toLowerCase())).map(app => (
+                    <button key={app.id} onClick={(e) => { e.stopPropagation(); openDesktopApp(app); closeStart(); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-blue-500/15 active:scale-[0.98]">
+                      {app.imgIcon === "discord" ? <img src={DISCORD_ICON} alt="" className="w-8 h-8 flex-shrink-0" />
+                        : app.imgIcon === "github" ? <img src={GITHUB_ICON} alt="" className="w-8 h-8 flex-shrink-0" style={{filter: darkMode ? "invert(1) brightness(1.2)" : "none"}} />
+                        : <span className="text-2xl flex-shrink-0 w-8 text-center">{app.emoji}</span>}
+                      <div>
+                        <div className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{app.title}</div>
+                        <div className={`text-[10px] ${darkMode ? "text-white/35" : "text-gray-400"}`}>Application</div>
+                      </div>
+                      <span className={`ml-auto text-[10px] ${darkMode ? "text-white/25" : "text-gray-300"}`}>↵</span>
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* All apps */}
+            {startSearch.trim().length === 0 && startView === "all" && (
+              <div className="px-7 pb-4">
+                <div className={`text-[10px] uppercase tracking-widest mb-3 ${darkMode ? "text-white/30" : "text-gray-400"}`}>All Apps</div>
+                {ALL_APP_DEFS.slice().sort((a,b) => a.title.localeCompare(b.title)).map(app => (
+                  <button key={app.id} onClick={(e) => { e.stopPropagation(); openDesktopApp(app); closeStart(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-blue-500/15 active:scale-[0.98]">
+                    {app.imgIcon === "discord" ? <img src={DISCORD_ICON} alt="" className="w-8 h-8 flex-shrink-0" />
+                      : app.imgIcon === "github" ? <img src={GITHUB_ICON} alt="" className="w-8 h-8 flex-shrink-0" style={{filter: darkMode ? "invert(1) brightness(1.2)" : "none"}} />
+                      : <span className="text-2xl flex-shrink-0 w-8 text-center">{app.emoji}</span>}
+                    <span className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{app.title}</span>
+                    <span className={`ml-auto text-[10px] ${darkMode ? "text-white/25" : "text-gray-300"}`}>↵</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Pinned */}
+            {startSearch.trim().length === 0 && startView === "pinned" && (
+              <>
+                <div className="px-7 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-sm font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Pinned</span>
+                    <button onClick={() => setStartView("all")}
+                      className={`text-xs px-3 py-1 rounded-lg flex items-center gap-1 transition-colors ${darkMode ? "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white" : "bg-black/5 text-gray-500 hover:bg-black/10"}`}>
+                      All apps <span className="text-[10px]">›</span>
+                    </button>
                   </div>
-                </button>
-              ))}
-            </div>
+                  <div className="grid grid-cols-6 gap-1">
+                    {ALL_APP_DEFS.map(app => (
+                      <button key={app.id} onClick={(e) => { e.stopPropagation(); openDesktopApp(app); closeStart(); }}
+                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all hover:bg-blue-500/15 active:scale-95">
+                        {app.imgIcon === "discord" ? <img src={DISCORD_ICON} alt="" className="w-7 h-7" />
+                          : app.imgIcon === "github" ? <img src={GITHUB_ICON} alt="" className="w-7 h-7" style={{filter: darkMode ? "invert(1) brightness(1.2)" : "none"}} />
+                          : <span className="text-2xl">{app.emoji}</span>}
+                        <span className={`text-[10px] text-center leading-tight w-full truncate ${darkMode ? "text-white/80" : "text-gray-700"}`}>{app.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={`px-7 py-4 border-t ${darkMode ? "border-white/8" : "border-black/5"}`}>
+                  <div className={`text-sm font-semibold mb-3 ${darkMode ? "text-white" : "text-gray-800"}`}>Recommended</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { icon: "📄", name: "os-portfolio.jsx",    sub: "3h ago" },
+                      { icon: "📁", name: "Outcraft Config",      sub: "Recently modified" },
+                      { icon: "🧟", name: "Zombpocalypse Plugin", sub: "Yesterday" },
+                      { icon: "🔫", name: "DeadLands SMP",        sub: "In development" },
+                    ].map(r => (
+                      <button key={r.name} className="flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all hover:bg-blue-500/10">
+                        <span className="text-xl flex-shrink-0">{r.icon}</span>
+                        <div className="min-w-0">
+                          <div className={`text-xs font-medium truncate ${darkMode ? "text-white" : "text-gray-800"}`}>{r.name}</div>
+                          <div className={`text-[10px] ${darkMode ? "text-white/40" : "text-gray-400"}`}>{r.sub}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Footer */}
-          <div className={`px-7 py-3 flex items-center justify-between border-t ${darkMode ? "border-white/8 bg-white/4" : "border-black/5 bg-black/3"}`}>
+          <div className={`px-7 py-3 flex items-center justify-between border-t flex-shrink-0 ${darkMode ? "border-white/8 bg-white/4" : "border-black/5 bg-black/3"}`}>
             <div className="flex items-center gap-3">
-              <img src={PFP_URI} alt="" className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center" style={{background:"#7c3aed"}} />
+              {startView === "all" && startSearch.trim().length === 0 && (
+                <button onClick={() => setStartView("pinned")}
+                  className={`text-xs px-3 py-1 rounded-lg flex items-center gap-1 mr-1 transition-colors ${darkMode ? "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white" : "bg-black/5 text-gray-500 hover:bg-black/10"}`}>
+                  ‹ Back
+                </button>
+              )}
+              <img src={PFP_URI} alt="" className="w-8 h-8 rounded-full flex-shrink-0" style={{background:"#7c3aed"}} />
               <span className={`font-semibold text-sm ${darkMode ? "text-white" : "text-gray-800"}`}>Tahmid Bin Nur</span>
             </div>
             <button onClick={() => { setWindows([]); closeStart(); }}
