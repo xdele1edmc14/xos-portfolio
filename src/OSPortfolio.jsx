@@ -37,6 +37,11 @@ const APP_DEFS = [
 // All apps — used in taskbar and Start Menu pinned grid
 const ALL_APP_DEFS = APP_DEFS;
 
+// Mobile home screen — strip desktop-only and contact apps
+const MOBILE_APP_DEFS = APP_DEFS.filter(a =>
+  !["paint", "browser", "explorer", "contact"].includes(a.id)
+);
+
 // Apps shown as desktop icons (left column on desktop)
 const DESKTOP_APPS = APP_DEFS.filter(a =>
   ["about", "projects", "skills", "contact", "settings", "discord", "github"].includes(a.id)
@@ -303,7 +308,7 @@ function OSPortfolio() {
 
           {/* App grid */}
           <div className="grid grid-cols-4 gap-4 px-6 mt-6">
-            {APP_DEFS.filter(app => app.desc.toLowerCase().includes(mobileSearch.toLowerCase())).map(app => (
+            {MOBILE_APP_DEFS.filter(app => app.desc.toLowerCase().includes(mobileSearch.toLowerCase())).map(app => (
               <button key={app.id} onClick={() => { openApp(app); setMobileSearch(""); }}
                 className="flex flex-col items-center gap-1.5 group">
                 <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center text-2xl shadow-lg ${darkMode ? "border-white/10" : "border-black/10"}`}
@@ -320,7 +325,7 @@ function OSPortfolio() {
                 </span>
               </button>
             ))}
-            {APP_DEFS.filter(a => a.desc.toLowerCase().includes(mobileSearch.toLowerCase())).length === 0 && (
+            {MOBILE_APP_DEFS.filter(a => a.desc.toLowerCase().includes(mobileSearch.toLowerCase())).length === 0 && (
               <div className={`col-span-4 text-center text-xs py-8 ${darkMode ? "text-white/30" : "text-gray-400"}`}>No apps found</div>
             )}
           </div>
@@ -328,7 +333,7 @@ function OSPortfolio() {
           {/* Dock */}
           <div className={`mx-6 mt-auto mb-2 rounded-3xl border flex justify-around py-3 px-2 ${darkMode ? "border-white/10" : "border-black/10"}`}
             style={{background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)", backdropFilter:"blur(32px)"}}>
-            {APP_DEFS.slice(0, 4).map(app => (
+            {MOBILE_APP_DEFS.slice(0, 4).map(app => (
               <button key={app.id} onClick={() => openApp(app)}
                 className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-2xl ${darkMode ? "border-white/10" : "border-black/10"}`}
                 style={{
