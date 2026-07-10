@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useLockTheme } from "../atmosphere.jsx";
 import { ContactRow } from "../Contact.jsx";
+import { TerminalEgg } from "../TerminalEgg.jsx";
 
 /* A path option. On click it expands to fill the viewport, then we navigate
    once the expand animation settles — no hard cut into the route. */
@@ -177,6 +178,10 @@ function Landing() {
       >
         <span className="text-[11px] font-mono uppercase tracking-widest text-muted">or reach me directly</span>
         <ContactRow compact />
+        <div className="mt-6 flex flex-col items-center gap-1.5">
+          <TerminalEgg />
+          <span className="text-[10px] font-mono text-muted/70">psst — there's a hidden desktop in here</span>
+        </div>
       </motion.div>
     </motion.main>
   );
