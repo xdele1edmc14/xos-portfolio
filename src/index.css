@@ -1,15 +1,287 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 * { box-sizing: border-box; }
-body { margin: 0; overflow: hidden; background: #05020f; }
 
-        body { background: #05020f !important; margin: 0; }
-        @keyframes introDot {
-          0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50%       { opacity: 1;   transform: scale(1.2); }
-        }
-        @keyframes osFadeIn { from { opacity: 0; } to { opacity: 1; } }
-      
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: #0a0612;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #efeaff;
+  overflow-x: hidden;
+}
+
+body.modal-open { overflow: hidden; }
+
+/* ───────────────────────── THEMES ─────────────────────────
+   Every section-level color routes through these custom
+   properties. Swap a block to re-skin a whole section.        */
+
+[data-theme="home"],
+[data-theme="server-hero"] {
+  --bg1: #0a0612;
+  --bg2: #1b0f38;
+  --acc: #a78bfa;
+  --acc-strong: #8b5cf6;
+  --acc-rgb: 139, 92, 246;
+  --text: #efeaff;
+  --muted: #a49bc4;
+  --card: rgba(139, 92, 246, 0.07);
+  --line: rgba(167, 139, 250, 0.22);
+}
+
+/* Graphics Design — deep violet base, magenta/pink accent glow */
+[data-theme="graphics"] {
+  --bg1: #120818;
+  --bg2: #2a0b3f;
+  --acc: #e879f9;
+  --acc-strong: #d946ef;
+  --acc-rgb: 217, 70, 239;
+  --text: #fbeaff;
+  --muted: #c19dd0;
+  --card: rgba(217, 70, 239, 0.07);
+  --line: rgba(232, 121, 249, 0.24);
+}
+
+/* xApocalypse — post-apocalyptic gray */
+[data-theme="xapocalypse"] {
+  --bg1: #0e0f10;
+  --bg2: #23262a;
+  --acc: #b8bdc0;
+  --acc-strong: #dde2e5;
+  --acc-rgb: 200, 90, 80;      /* embers/blood-moon lean warm */
+  --text: #e3e5e6;
+  --muted: #82888c;
+  --card: rgba(214, 217, 219, 0.05);
+  --line: rgba(179, 184, 186, 0.18);
+}
+
+/* DeadLands — wasteland desert orange */
+[data-theme="deadlands"] {
+  --bg1: #1a1006;
+  --bg2: #43240a;
+  --acc: #f59e0b;
+  --acc-strong: #fb923c;
+  --acc-rgb: 245, 158, 11;
+  --text: #fdf1e3;
+  --muted: #c2a181;
+  --card: rgba(245, 158, 11, 0.07);
+  --line: rgba(245, 158, 11, 0.25);
+}
+
+/* Outcraft — event-server electric */
+[data-theme="outcraft"] {
+  --bg1: #060a1c;
+  --bg2: #101a52;
+  --acc: #22d3ee;
+  --acc-strong: #67e8f9;
+  --acc-rgb: 34, 211, 238;
+  --text: #eafcff;
+  --muted: #8fa3c8;
+  --card: rgba(34, 211, 238, 0.07);
+  --line: rgba(34, 211, 238, 0.28);
+}
+
+/* Theme helper utilities */
+.text-acc    { color: var(--acc); }
+.text-body   { color: var(--text); }
+.text-muted  { color: var(--muted); }
+.bg-card     { background: var(--card); }
+.border-line { border-color: var(--line); }
+
+/* ───────────────────── BACKDROP LAYER ─────────────────────
+   Fixed, full-screen. Its gradient + particle tint crossfade
+   over ~1s when the section theme changes (server scroll).    */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--bg2), transparent 60%),
+    var(--bg1);
+  transition: background 1s ease, background-color 1s ease;
+}
+
+/* Section texture (wasteland / desert) — fills the whole viewport, above
+   the base gradient but BELOW the particle field so spores + dust drift on
+   top of it. A dark scrim keeps text readable. */
+.backdrop-texture {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.55;
+  pointer-events: none;
+}
+/* readability scrim over the texture */
+.backdrop-texture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--bg1) 55%, transparent),
+    color-mix(in srgb, var(--bg1) 35%, transparent) 45%,
+    color-mix(in srgb, var(--bg1) 60%, transparent));
+}
+
+/* ───────────────────── PARTICLES ─────────────────────
+   Particles read `currentColor`; the field sets `color` with a
+   1s transition so tint crossfades in lockstep with the bg.    */
+
+.particle-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--acc);
+  transition: color 1s ease;
+}
+
+@keyframes drift {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: var(--p-op, 0.5); }
+  90%  { opacity: var(--p-op, 0.5); }
+  100% { transform: translateY(-110vh) translateX(var(--p-x, 20px)); opacity: 0; }
+}
+.particle {
+  position: absolute;
+  bottom: -4vh;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: drift linear infinite;
+  will-change: transform, opacity;
+}
+
+/* Spore variant (xApocalypse): big soft glowing motes that rise slowly
+   while swaying side to side and gently pulsing — drifting airborne spores. */
+@keyframes spore {
+  0%   { transform: translateY(0) translateX(0) scale(0.9); opacity: 0; }
+  12%  { opacity: var(--p-op, 0.55); }
+  50%  { transform: translateY(-55vh) translateX(var(--p-sway, 30px)) scale(1.15); }
+  88%  { opacity: var(--p-op, 0.55); }
+  100% { transform: translateY(-115vh) translateX(0) scale(0.95); opacity: 0; }
+}
+.particle.is-spore {
+  background: radial-gradient(circle at 40% 35%, #fff 0%, currentColor 45%, transparent 72%);
+  box-shadow: 0 0 10px 2px currentColor;
+  animation-name: spore;
+  filter: saturate(0.85);
+}
+
+/* Dust variant (DeadLands): many small specks drifting mostly sideways
+   with a shallow rise + flicker — kicked-up desert dust / heat haze. */
+@keyframes dust {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  15%  { opacity: var(--p-op, 0.4); }
+  85%  { opacity: var(--p-op, 0.4); }
+  100% { transform: translateY(var(--p-rise, -40vh)) translateX(var(--p-x, 60px)); opacity: 0; }
+}
+.particle.is-dust {
+  animation-name: dust;
+  background: radial-gradient(circle at 40% 35%, #fff 0%, currentColor 55%, transparent 78%);
+  box-shadow: 0 0 6px 1px currentColor;
+}
+
+@keyframes gradientShift {
+  0%, 100% { transform: translate(-8%, -4%) scale(1); }
+  50%      { transform: translate(8%, 6%) scale(1.15); }
+}
+.ambient-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  background: currentColor;
+  animation: gradientShift 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Blood-moon pulse used inside xApocalypse section */
+@keyframes bloodGlow {
+  0%, 100% { opacity: 0.10; transform: scale(1); }
+  50%      { opacity: 0.30; transform: scale(1.08); }
+}
+.blood-moon {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(220,38,38,0.7), rgba(220,38,38,0) 70%);
+  filter: blur(30px);
+  animation: bloodGlow 5s ease-in-out infinite;
+}
+
+/* ─────────────────── SCROLL REVEAL ─────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.in { opacity: 1; transform: translateY(0); }
+
+/* ─────────────────── MICRO-INTERACTIONS ─────────────────── */
+
+.card-hover {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.35s ease, box-shadow 0.35s ease;
+}
+.card-hover:hover, .card-hover:focus-visible {
+  transform: translateY(-4px);
+  border-color: var(--acc);
+  box-shadow: 0 14px 44px -14px rgba(var(--acc-rgb), 0.5), 0 0 0 1px var(--line);
+}
+
+.btn-acc {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+.btn-acc:hover  { transform: translateY(-2px); box-shadow: 0 10px 30px -8px rgba(var(--acc-rgb), 0.6); }
+.btn-acc:active { transform: translateY(0) scale(0.98); }
+
+/* Gallery tiles: hover scale + glow + subtle brighten */
+.tile { overflow: hidden; box-shadow: 0 10px 30px -18px rgba(0,0,0,0.8); }
+.tile img { transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), filter 0.35s ease; }
+.tile:hover img, .tile:focus-within img { transform: scale(1.05); filter: brightness(1.1); }
+.tile:hover, .tile:focus-within {
+  box-shadow: 0 22px 60px -18px rgba(var(--acc-rgb), 0.6);
+  border-color: var(--acc);
+}
+.tile .tile-label {
+  transform: translateY(30%);
+  opacity: 0;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+.tile:hover .tile-label, .tile:focus-within .tile-label {
+  transform: translateY(0);
+  opacity: 1;
+}
+@media (hover: none) { .tile .tile-label { transform: none; opacity: 1; } }
+
+/* Placeholder gradient for missing assets */
+.placeholder-art {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(var(--acc-rgb), 0.35), transparent 55%),
+    linear-gradient(135deg, var(--bg2), var(--bg1));
+}
+
+/* Lazy image fade-in */
+.lazy-img { opacity: 0; transition: opacity 0.5s ease; }
+.lazy-img.loaded { opacity: 1; }
+
+/* ─────────────────── NAV / LINKS ─────────────────── */
+
+.nav-link { color: var(--muted); transition: color 0.25s ease; }
+.nav-link:hover { color: var(--text); }
+.nav-link.active { color: var(--acc); }
+
+@media (prefers-reduced-motion: reduce) {
+  .particle, .ambient-glow, .blood-moon { animation: none !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  html { scroll-behavior: auto; }
+  .backdrop, .particle-field { transition: none; }
+}
