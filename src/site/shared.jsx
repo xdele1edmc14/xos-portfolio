@@ -58,6 +58,41 @@ export function Reveal({ children, delay = 0, className = "", as: Tag = "div" })
   );
 }
 
+/* Shared testimonial card. Initials keep reviews personal without requiring
+   portrait assets, while the active page theme supplies the accent colour. */
+export function ReviewCard({ quote, name, role, className = "" }) {
+  const initial = name?.trim().charAt(0).toUpperCase() || "?";
+
+  return (
+    <figure className={`testimonial-card card-hover h-full rounded-2xl border border-line p-6 md:p-7 ${className}`}>
+      <div className="relative z-10 flex h-full flex-col">
+        <span
+          aria-hidden="true"
+          className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-card font-serif text-2xl leading-none text-acc"
+        >
+          “
+        </span>
+        <blockquote className="text-base font-medium leading-relaxed text-body md:text-lg">
+          {quote}
+        </blockquote>
+        <figcaption className="mt-auto flex items-center gap-3 pt-6">
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line text-sm font-bold text-acc"
+            style={{ background: "rgba(var(--acc-rgb), 0.12)" }}
+          >
+            {initial}
+          </span>
+          <span className="min-w-0">
+            <span className="block font-bold text-body">{name}</span>
+            <span className="block text-xs font-mono uppercase tracking-wider text-muted">{role}</span>
+          </span>
+        </figcaption>
+      </div>
+    </figure>
+  );
+}
+
 /* ─────────── Lazy image with fade-in + placeholder fallback ───────────
    If the image fails to load (missing asset), we keep the parent's
    placeholder gradient visible instead of a broken-image icon. */

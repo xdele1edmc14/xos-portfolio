@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../atmosphere.jsx";
-import { Reveal, LazyImg, SERVER_ASSETS } from "../shared.jsx";
+import { Reveal, LazyImg, ReviewCard, SERVER_ASSETS } from "../shared.jsx";
 import { ContactFooter } from "../Contact.jsx";
 
 /* Each block reports itself to the theme controller when it crosses the
@@ -114,6 +114,36 @@ function Server() {
         </div>
       </ThemeSection>
 
+      {/* ── DEVELOPMENT REVIEWS ── */}
+      <section className="px-5 pb-24 md:px-8" aria-labelledby="development-reviews">
+        <div className="max-w-4xl mx-auto">
+          <Reveal>
+            <div className="mb-5 flex items-center gap-4">
+              <p id="development-reviews" className="text-[11px] font-mono uppercase tracking-[0.3em] text-acc whitespace-nowrap">
+                Words from collaborators
+              </p>
+              <span className="h-px flex-1 border-t border-line" />
+            </div>
+          </Reveal>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Reveal className="h-full">
+              <ReviewCard
+                quote="Best 3D model artist I know. This guy can make good-looking 3D Minecraft items and graphics; I also like the way he promotes his stuff."
+                name="Kelimek"
+                role="Builder of MCRybar"
+              />
+            </Reveal>
+            <Reveal delay={80} className="h-full">
+              <ReviewCard
+                quote="Really clean and beautiful configs."
+                name="Sike"
+                role="Owner of Outcraft Network"
+              />
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ── xAPOCALYPSE — post-apocalyptic gray ── */}
       <SectionDivider n="01" label="The Plugin" />
       <ThemeSection
@@ -154,6 +184,15 @@ function Server() {
               </Reveal>
             ))}
           </div>
+
+          <Reveal>
+            <ReviewCard
+              quote="Congratulations on the plugin! It has many great features. 10/10 for the plugin."
+              name="MelaniumAS"
+              role="SpigotMC Veteran"
+              className="mb-8 max-w-2xl"
+            />
+          </Reveal>
 
           <Reveal>
             <CTA href="https://www.spigotmc.org/resources/xapocalypse-13-zombie-types-custom-bosses-bloodmoons.136555/">

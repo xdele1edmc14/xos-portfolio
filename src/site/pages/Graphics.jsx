@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLockTheme } from "../atmosphere.jsx";
-import { GALLERIES, Reveal, LazyImg } from "../shared.jsx";
+import { GALLERIES, Reveal, LazyImg, ReviewCard } from "../shared.jsx";
 import { ContactFooter } from "../Contact.jsx";
 
 const SECTIONS = [
@@ -204,6 +204,13 @@ function Featured({ onOpen }) {
               <span key={t} className="text-xs px-2.5 py-1 rounded-full border border-line text-muted">{t}</span>
             ))}
           </div>
+          <div className="my-6 h-px border-t border-line" />
+          <ReviewCard
+            quote="W Thumbnail"
+            name="Nigel"
+            role="Founder, Outcraft Network"
+            className="p-5 md:p-5"
+          />
         </div>
       </section>
     </Reveal>
